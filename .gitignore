@@ -1,0 +1,23 @@
+# Ambiente virtual
+venv/
+.env
+
+# Banco de dados local
+registro_vendas/db.sqlite3
+
+# Cache do Python
+__pycache__/
+*.pyc
+
+# Arquivos de mídia (caso tenha uploads)
+media/
+
+# Configurações específicas do sistema operacional
+.DS_Store
+Thumbs.db
+
+# Configurações do VSCode
+.vscode/
+
+# Node modules (se tiver front-end com npm/yarn)
+node_modules/
