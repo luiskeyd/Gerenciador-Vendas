@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block page_title %}Visualizar Relatórios{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-6">
+  
+  <!-- Cabeçalho -->
+  <div class="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+    <h1 class="text-2xl font-bold text-gray-900 mb-4">Relatórios de Vendas</h1>
+    
+    <!-- Estatísticas Rápidas -->
+    <div id="estatisticas-rapidas" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+        <div class="flex items-center">
+          <svg class="h-8 w-8 text-blue-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+          </svg>
+          <div>
+            <p class="text-sm font-medium text-blue-800">Vendas Hoje</p>
+            <p id="vendas-hoje" class="text-xl font-bold text-blue-900">R$ 0,00</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+        <div class="flex items-center">
+          <svg class="h-8 w-8 text-green-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+          </svg>
+          <div>
+            <p class="text-sm font-medium text-green-800">Mês Atual</p>
+            <p id="vendas-mes" class="text-xl font-bold text-green-900">R$ 0,00</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="bg-purple-50 p-4 rounded-lg border border-purple-200">
+        <div class="flex items-center">
+          <svg class="h-8 w-8 text-purple-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+          </svg>
+          <div>
+            <p class="text-sm font-medium text-purple-800">Comparativo</p>
+            <p id="comparativo" class="text-xl font-bold text-purple-900">+R$ 0,00</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controles de Filtro -->
+  <div class="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+    <div class="flex flex-wrap items-center gap-4">
+      <div>
+        <label for="ano-select" class="block text-sm font-medium text-gray-700 mb-1">Ano</label>
+        <select id="ano-select" class="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          {% for ano in anos_disponiveis %}
+            <option value="{{ ano }}" {% if ano == ano_atual %}selected{% endif %}>{{ ano }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      
+      <div class="flex-1 max-w-md">
+        <label for="mes-select" class="block text-sm font-medium text-gray-700 mb-1">Mês</label>
+        <select id="mes-select" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          {% for mes in meses %}
+            <option value="{{ mes.numero }}" {% if mes.numero == mes_atual %}selected{% endif %}>{{ mes.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      
+      <div class="pt-6">
+        <button id="buscar-relatorios" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md transition-colors flex items-center">
+          <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+          </svg>
+          Buscar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div id="loading" class="hidden text-center py-8">
+    <svg class="animate-spin h-8 w-8 mx-auto text-blue-600" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="m12 2 4.5 5.5L22 8l-5.5 4.5L22 22l-5.5-4.5L12 22l-4.5-5.5L2 22l5.5-4.5L2 8l5.5-4.5L12 2z"></path>
+    </svg>
+    <p class="text-gray-600 mt-2">Carregando relatórios...</p>
+  </div>
+
+  <!-- Relatórios do Mês -->
+  <div id="relatorios-container" class="space-y-6">
+    <!-- Conteúdo será inserido via JavaScript -->
+  </div>
+
+</div>
+
+<!-- Modal de Preview -->
+<div id="modal-preview" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+  <div class="flex items-center justify-center min-h-screen p-4">
+    <div class="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+      <div class="p-6">
+        <div class="flex justify-between items-center mb-4">
+          <h3 id="modal-titulo" class="text-lg font-semibold text-gray-900"></h3>
+          <button id="fechar-modal" class="text-gray-400 hover:text-gray-600">
+            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+        <div id="modal-conteudo" class="bg-gray-50 p-4 rounded-md font-mono text-sm whitespace-pre-line">
+          <!-- Conteúdo do preview -->
+        </div>
+        <div class="mt-4 flex justify-end space-x-3">
+          <button id="download-modal" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md transition-colors">
+            Download PDF
+          </button>
+          <button id="cancelar-modal" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-md transition-colors">
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="{% static 'js/relatorios.js' %}"></script>
+{% endblock %}

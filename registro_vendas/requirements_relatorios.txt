@@ -1,0 +1,11 @@
+# Dependências para geração de relatórios PDF
+reportlab==4.0.4
+# Alternativa mais moderna (opcional):
+# weasyprint==60.2
+
+# Para processamento de datas em português
+babel==2.13.1
+
+# Para tarefas assíncronas (opcional - para geração agendada)
+# celery==5.3.4
+# redis==5.0.1
