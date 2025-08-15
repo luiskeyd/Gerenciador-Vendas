@@ -118,6 +118,8 @@
 {{ produtos|safe }}
 </script>
 
+{% csrf_token %}
+<meta name="csrf-token" content="{{ csfr_token }}">
 <!-- Incluir o arquivo JavaScript externo -->
 <script src="{% static 'js/vendas.js' %}"></script>
 {% endblock %}

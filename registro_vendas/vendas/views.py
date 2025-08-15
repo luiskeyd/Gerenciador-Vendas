@@ -1,13 +1,15 @@
 import json
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse, JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.contrib import messages
+from django.utils import timezone
 from datetime import date
 from calendar import monthrange
 from django.core import serializers
 
-from .models import Produto, Venda, RelatorioDiario, RelatorioMensal
+from .models import Produto, Venda, ItemVenda, RelatorioDiario, RelatorioMensal
 from .utils.relatorios import GeradorRelatorios
 
 def home(request):
@@ -244,3 +246,106 @@ def estatisticas_rapidas(request):
       
   except Exception as e:
       return JsonResponse({'erro': 'Erro ao buscar estatísticas'}, status=500)
+  
+@csrf_exempt
+@require_http_methods(["POST"])
+def finalizar_venda(request):
+    """Finaliza uma venda recebendo os itens via JSON"""
+    try:
+        # Receber dados JSON do frontend
+        dados = json.loads(request.body)
+        itens_venda = dados.get('itens', [])
+        
+        # Validar se tem itens
+        if not itens_venda:
+            return JsonResponse({
+                'erro': True,
+                'mensagem': 'Nenhum item na venda para finalizar'
+            }, status=400)
+        
+        # Calcular total
+        total_calculado = 0
+        itens_validados = []
+        
+        for item in itens_venda:
+            try:
+                produto = Produto.objects.get(id=item['produto_id'])
+                quantidade = int(item['quantidade'])
+                
+                # Verificar estoque
+                if produto.quantidade_estoque < quantidade:
+                    return JsonResponse({
+                        'erro': True,
+                        'mensagem': f'Estoque insuficiente para {produto.nome}. Disponível: {produto.quantidade_estoque}'
+                    }, status=400)
+                
+                subtotal = quantidade * produto.preco
+                total_calculado += subtotal
+                
+                itens_validados.append({
+                    'produto': produto,
+                    'quantidade': quantidade,
+                    'preco_unitario': produto.preco,
+                    'subtotal': subtotal
+                })
+                
+            except Produto.DoesNotExist:
+                return JsonResponse({
+                    'erro': True,
+                    'mensagem': f'Produto com ID {item["produto_id"]} não encontrado'
+                }, status=400)
+            except (ValueError, KeyError):
+                return JsonResponse({
+                    'erro': True,
+                    'mensagem': 'Dados inválidos na venda'
+                }, status=400)
+        
+        # Criar a venda
+        venda = Venda.objects.create(
+            data_venda=timezone.now(),
+            total=total_calculado,
+            finalizada=True
+        )
+        
+        # Criar os itens da venda e atualizar estoque
+        for item_data in itens_validados:
+            # Criar item da venda
+            ItemVenda.objects.create(
+                venda=venda,
+                produto=item_data['produto'],
+                quantidade=item_data['quantidade'],
+                preco_unitario=item_data['preco_unitario'],
+                subtotal=item_data['subtotal']
+            )
+            
+            # Atualizar estoque
+            produto = item_data['produto']
+            produto.quantidade_estoque -= item_data['quantidade']
+            produto.quantidade_vendidos += item_data['quantidade']
+            produto.save()
+        
+        # Processar relatório do dia
+        try:
+            GeradorRelatorios.processar_vendas_do_dia(venda.data_venda.date())
+        except Exception as e:
+            # Não falhar a venda se der erro no relatório
+            print(f"Erro ao processar relatório: {e}")
+        
+        return JsonResponse({
+            'sucesso': True,
+            'venda_id': venda.id,
+            'total': float(venda.total),
+            'data_venda': venda.data_venda.strftime('%d/%m/%Y %H:%M'),
+            'mensagem': f'Venda finalizada com sucesso! Total: R$ {venda.total:.2f}'
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'erro': True,
+            'mensagem': 'Dados JSON inválidos'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'erro': True,
+            'mensagem': f'Erro interno: {str(e)}'
+        }, status=500)

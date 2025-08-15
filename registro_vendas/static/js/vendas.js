@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const quantidadeInput = document.getElementById('quantidade');
     const subtotalInput = document.getElementById('subtotal');
     const adicionarBtn = document.getElementById('adicionar-produto');
+    const finalizarVendaBtn = document.getElementById('finalizar-venda');
     const listaVenda = document.getElementById('lista-produtos-venda');
     const totalVenda = document.getElementById('total-venda');
     const limparBtn = document.getElementById('limpar-venda');
@@ -275,6 +276,187 @@ document.addEventListener('DOMContentLoaded', function() {
     // Event listener para o botão limpar
     if (limparBtn) {
         limparBtn.addEventListener('click', limparVenda);
+    }
+
+    if (finalizarVendaBtn) {
+    finalizarVendaBtn.addEventListener('click', finalizarVenda);
+    }
+
+    // Função para finalizar a venda
+    function finalizarVenda() {
+        // Verificar se tem itens na venda
+        if (itensVenda.length === 0) {
+            mostrarNotificacao('Adicione pelo menos um produto à venda', 'warning');
+            return;
+        }
+        
+        // Calcular total
+        const totalCalculado = itensVenda.reduce((sum, item) => sum + item.subtotal, 0);
+        
+        // Confirmação
+        const confirmacao = confirm(
+            `Finalizar venda?\n\n` +
+            `Itens: ${itensVenda.length}\n` +
+            `Total: R$ ${totalCalculado.toFixed(2)}\n\n` +
+            `Esta ação não pode ser desfeita.`
+        );
+        
+        if (!confirmacao) {
+            return;
+        }
+        
+        // Mostrar loading no botão
+        const textoOriginal = finalizarVendaBtn.innerHTML;
+        finalizarVendaBtn.innerHTML = `
+            <svg class="h-5 w-5 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Finalizando...
+        `;
+        finalizarVendaBtn.disabled = true;
+        
+        // Preparar dados para envio
+        const dadosVenda = {
+            itens: itensVenda.map(item => ({
+                produto_id: item.produto.id,
+                quantidade: item.quantidade,
+                subtotal: item.subtotal
+            }))
+        };
+        
+        // Enviar para o servidor
+        fetch('/vendas/finalizar-venda/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(dadosVenda)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.sucesso) {
+                // Sucesso
+                mostrarNotificacao(data.mensagem, 'success');
+                
+                // Mostrar modal de sucesso com detalhes
+                mostrarModalSucesso(data);
+                
+                // Limpar venda
+                itensVenda = [];
+                atualizarListaVenda();
+                calcularTotal();
+                limparSelecao();
+                
+                // Focar no campo de pesquisa para nova venda
+                setTimeout(() => {
+                    campoPesquisa.focus();
+                }, 2000);
+                
+            } else {
+                // Erro
+                mostrarNotificacao(data.mensagem || 'Erro ao finalizar venda', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            mostrarNotificacao('Erro de conexão ao finalizar venda', 'error');
+        })
+        .finally(() => {
+            // Restaurar botão
+            finalizarVendaBtn.innerHTML = textoOriginal;
+            finalizarVendaBtn.disabled = false;
+        });
+    }
+
+    // Função para mostrar modal de sucesso
+    function mostrarModalSucesso(dadosVenda) {
+        // Remover modal existente se houver
+        const modalExistente = document.getElementById('modal-sucesso-venda');
+        if (modalExistente) {
+            modalExistente.remove();
+        }
+        
+        // Criar modal
+        const modal = document.createElement('div');
+        modal.id = 'modal-sucesso-venda';
+        modal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50';
+        modal.innerHTML = `
+            <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4 transform transition-all duration-300 scale-95">
+                <div class="text-center">
+                    <!-- Ícone de sucesso -->
+                    <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-4">
+                        <svg class="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                    </div>
+                    
+                    <!-- Título -->
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Venda Finalizada!</h3>
+                    
+                    <!-- Detalhes -->
+                    <div class="text-sm text-gray-600 mb-4 space-y-1">
+                        <p><strong>Venda:</strong> #${dadosVenda.venda_id}</p>
+                        <p><strong>Data:</strong> ${dadosVenda.data_venda}</p>
+                        <p><strong>Total:</strong> <span class="text-green-600 font-semibold">R$ ${dadosVenda.total.toFixed(2)}</span></p>
+                    </div>
+                    
+                    <!-- Botões -->
+                    <div class="flex space-x-3">
+                        <button 
+                            onclick="fecharModalSucesso()"
+                            class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md transition-colors"
+                        >
+                            Nova Venda
+                        </button>
+                        <button 
+                            onclick="window.print(); fecharModalSucesso();"
+                            class="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-md transition-colors"
+                        >
+                            Imprimir
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Animação de entrada
+        setTimeout(() => {
+            modal.querySelector('.transform').classList.remove('scale-95');
+            modal.querySelector('.transform').classList.add('scale-100');
+        }, 10);
+        
+        // Fechar automaticamente após 5 segundos
+        setTimeout(() => {
+            fecharModalSucesso();
+        }, 5000);
+    }
+
+    // Função para fechar modal de sucesso
+    function fecharModalSucesso() {
+        const modal = document.getElementById('modal-sucesso-venda');
+        if (modal) {
+            modal.remove();
+        }
+    }
+
+    // Função para obter CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
     }
     
     // Função para mostrar notificações
